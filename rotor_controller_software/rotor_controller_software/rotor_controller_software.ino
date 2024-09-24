@@ -16,7 +16,7 @@ int16_t current_azimuth;
 #define EAST_DEG 270
 #define WEST_DEG 360
 
-#define DELAY_PER_DEG 6 // takes about 6 seconds per degree
+#define DELAY_PER_DEG_MS 500 // takes about 6 seconds per degree
 
 String buffer_read;
 String az_string;
@@ -45,6 +45,7 @@ uint8_t update_rotor_position()
   {
 
     int ii =0;
+    /*
     if (current_azimuth == -1)
     {
        // go to North first just as precaution.
@@ -53,15 +54,7 @@ uint8_t update_rotor_position()
         for (ii=0; ii< 3; ii++)
         {
           IrSender.sendNEC(0xAC,0x00,0);
-          delay(250);  
-          Serial.println("DEBUG: Sending 0x00 ");
-        }
-
-        delay(1000);
-        for (ii=0; ii< 3; ii++)
-        {
-          IrSender.sendNEC(0xAC,0x00,0);
-          delay(250);  
+          delay(350);  
           Serial.println("DEBUG: Sending 0x00 ");
         }
 
@@ -70,36 +63,41 @@ uint8_t update_rotor_position()
         current_azimuth = 0;
 
     }
+    */
+
     az_string = String(az_value);
     int temp_indx_value =0;
 
-   
-    int jj =0;
-    for (jj=0; jj<2; jj++)
+    if (az_string.length() != 3)
     {
-      if (az_string.length() != 3)
+      for (ii=0; ii< 3-az_string.length(); ii++)
       {
-        for (ii=0; ii< 3-az_string.length(); ii++)
-        {
-          IrSender.sendNEC(0xAC,0x00,0);
-          delay(250);  
-          Serial.println("DEBUG: Sending 0x00 ");
-        }
-      } 
-
-      for (ii=0; ii < az_string.length(); ii++)
-      {
-        temp_indx_value = az_string.charAt(ii) - '0';
-        Serial.print("DEBUG: Sending char ");
-        Serial.println(ii);
-        Serial.println(temp_indx_value);
-        IrSender.sendNEC(0xAC,(temp_indx_value&0xFF),0);
+        IrSender.sendNEC(0xAC,0x00,0);
         delay(250);  
+        //Serial.println("DEBUG: Sending 0x00 ");
       }
+    } 
+
+    for (ii=0; ii < az_string.length(); ii++)
+    {
+      temp_indx_value = az_string.charAt(ii) - '0';
+      /*
+      Serial.print("DEBUG: Sending char ");
+      Serial.println(ii);
+      Serial.println(temp_indx_value);
+      */
+      IrSender.sendNEC(0xAC,(temp_indx_value&0xFF),0);
+      delay(250);  
     }
 
-    long delay_time = abs(current_azimuth-az_value);
-    delay(delay_time*DELAY_PER_DEG);
+    unsigned long delay_time = (unsigned long) (abs(current_azimuth-az_value))*300;
+    Serial.print("delaying by sec: ");
+    Serial.println(delay_time);
+    delay(delay_time);
+    if (Serial.available())
+    {
+    Serial.readString();
+    }
     current_azimuth = az_value;
     az_value = -1;
   }
@@ -116,15 +114,16 @@ uint8_t parse_buffer()
   while(Serial.available())
   {
     buffer_read = Serial.readString();
-    Serial.print("read string: ");
-    Serial.println(buffer_read);
+    //Serial.print("read string: ");
+    //Serial.println(buffer_read);
     for (int i=0; i < buffer_read.length(); i++)
     {
-      if (((buffer_read.charAt(i) == 'A') && (buffer_read.charAt(i+1) =='Z')) && (buffer_read.charAt(i+2) ==' ') && (buffer_read.charAt(i+3) =='E') && (buffer_read.charAt(i+4)=='L'))
+      if (buffer_read == "AZ EL \n")
       {
         Serial.print("AZ");
         Serial.print(current_azimuth); 
-        Serial.println(" EL");
+        Serial.println(" EL0.0");
+        break;
       }
       else if ((buffer_read.charAt(i) == 'A') && (buffer_read.charAt(i+1) =='Z'))
       {
@@ -146,9 +145,6 @@ uint8_t parse_buffer()
     if (az_string != "")
     {
       az_value = (az_string.toInt()%360);
-      Serial.print("AZ_set to: ");
-      Serial.println(az_value);
-
 
       return 0;
     }
@@ -161,7 +157,7 @@ uint8_t parse_buffer()
 void setup() {
     Serial.begin(9600);
     current_azimuth = -1; // set it -1 so it has to be reset from north.
-    Serial.println("DEBUG: ROTOR CONTROLLER");
+    //Serial.println("DEBUG: ROTOR CONTROLLER");
 
     IrSender.begin(IR_PIN);
 
